@@ -201,6 +201,9 @@ def _calculate_differences(
     if join_on_fields:
         # Use an inner join because a row must be present in source and target
         # for the difference to be well defined.
+        # TODO(helensilva14):
+        #  this inner join is the root cause of issue #518, because it
+        #   does not consider cases when row only exists on source or target
         differences_joined = source.join(target, join_on_fields, how="inner")
     else:
         # When no join_on_fields are present, we expect only one row per table.
