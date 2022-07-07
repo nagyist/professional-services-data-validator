@@ -201,9 +201,6 @@ def _calculate_differences(
     if join_on_fields:
         # Use an inner join because a row must be present in source and target
         # for the difference to be well defined.
-        # TODO(helensilva14):
-        #  this inner join is the root cause of issue #518, because it
-        #   does not consider cases when row only exists on source or target
         differences_joined = source.join(target, join_on_fields, how="inner")
     else:
         # When no join_on_fields are present, we expect only one row per table.
@@ -270,8 +267,11 @@ def _pivot_result(result, join_on_fields, validations, result_type):
                         ibis.literal(validation.aggregation_type).name(
                             "aggregation_type"
                         ),
-                        ibis.literal(validation.get_table_name(result_type)).name(
-                            "table_name"
+                        ibis.literal(validation.get_table_name("source")).name(
+                            "source_table_name"
+                        ),
+                        ibis.literal(validation.get_table_name("target")).name(
+                            "target_table_name"
                         ),
                         # Cast to string to ensure types match, even when column
                         # name is NULL (such as for count aggregations).
@@ -328,7 +328,7 @@ def _join_pivots(source, target, differences, join_on_fields):
         + [
             source["validation_type"],
             source["aggregation_type"],
-            source["table_name"],
+            source["source_table_name"],
             source["column_name"],
             source["primary_keys"],
             source["num_random_rows"],
@@ -347,10 +347,14 @@ def _join_pivots(source, target, differences, join_on_fields):
         source_difference["aggregation_type"]
         .fillna(target["aggregation_type"])
         .name("aggregation_type"),
-        source_difference["table_name"].name("source_table_name"),
+        source_difference["source_table_name"]
+        .fillna(target["source_table_name"])
+        .name("source_table_name"),
         source_difference["column_name"].name("source_column_name"),
         source_difference["agg_value"].name("source_agg_value"),
-        target["table_name"].name("target_table_name"),
+        target["target_table_name"]
+        .fillna(source_difference["target_table_name"])
+        .name("target_table_name"),
         target["column_name"].name("target_column_name"),
         target["agg_value"].name("target_agg_value"),
         group_by_columns,
